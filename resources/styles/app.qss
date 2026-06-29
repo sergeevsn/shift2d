@@ -92,6 +92,7 @@ QToolBar#viewToolbar QDoubleSpinBox {
 QWidget#sidebar {
     background-color: #181b22;
     border-right: 1px solid #2f3440;
+    border-top: 1px solid #2f3440;
 }
 
 QLabel#appTitle {

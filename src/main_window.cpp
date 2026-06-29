@@ -48,7 +48,6 @@ MainWindow::MainWindow(QWidget* parent)
 {
     setupUi();
     setupMenu();
-    setupToolbar();
     updateInfoMenuActions();
     setWindowTitle(tr("Shift2D — SEG-Y Statics"));
     setMinimumSize(1200, 800);
@@ -69,7 +68,14 @@ void MainWindow::setupUi()
     left_panel_->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
     main_layout->addWidget(left_panel_, 0);
 
-    // Правая часть - виджет сейсмики и скроллбары
+    // Правая колонка: toolbar над секцией графиков
+    auto* right_column = new QWidget(this);
+    auto* right_column_layout = new QVBoxLayout(right_column);
+    right_column_layout->setContentsMargins(0, 0, 0, 0);
+    right_column_layout->setSpacing(0);
+
+    setupToolbar(right_column_layout);
+
     auto* right_widget = new QWidget(this);
     auto* right_layout = new QVBoxLayout(right_widget);
     right_layout->setContentsMargins(0, 0, 0, 0);
@@ -88,6 +94,8 @@ void MainWindow::setupUi()
 
     // Вертикальный скроллбар (справа от виджета)
     auto* seis_layout = new QHBoxLayout();
+    seis_layout->setContentsMargins(0, 0, 0, 0);
+    seis_layout->setSpacing(0);
     seis_layout->addWidget(right_widget, 1);
 
     v_scrollbar_ = new QScrollBar(Qt::Vertical, this);
@@ -96,7 +104,8 @@ void MainWindow::setupUi()
     connect(v_scrollbar_, &QScrollBar::valueChanged, this, &MainWindow::onVScrollChanged);
     seis_layout->addWidget(v_scrollbar_);
 
-    main_layout->addLayout(seis_layout, 1);
+    right_column_layout->addLayout(seis_layout, 1);
+    main_layout->addWidget(right_column, 1);
 
     setCentralWidget(central);
 
@@ -158,9 +167,9 @@ void MainWindow::setupMenu()
     info_menu->addAction(info_horizon_action_);
 }
 
-void MainWindow::setupToolbar()
+void MainWindow::setupToolbar(QVBoxLayout* parent_layout)
 {
-    auto* toolbar = addToolBar(tr("View"));
+    auto* toolbar = new QToolBar(tr("View"), this);
     toolbar->setObjectName(QStringLiteral("viewToolbar"));
     toolbar->setMovable(false);
     toolbar->setFloatable(false);
@@ -222,6 +231,8 @@ void MainWindow::setupToolbar()
 
     toolbar->addSeparator();
     toolbar->setContextMenuPolicy(Qt::PreventContextMenu);
+
+    parent_layout->addWidget(toolbar);
 }
 
 void MainWindow::createLeftPanel()

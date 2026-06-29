@@ -25,6 +25,7 @@ class QAction;
 class QActionGroup;
 class QScrollBar;
 class QFrame;
+class QVBoxLayout;
 
 class SegyReader;
 class SegyWriter;
@@ -71,7 +72,7 @@ private slots:
 private:
     void setupUi();
     void setupMenu();
-    void setupToolbar();
+    void setupToolbar(QVBoxLayout* parent_layout);
     void createLeftPanel();
 
     // Загрузка данных
