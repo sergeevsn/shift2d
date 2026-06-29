@@ -23,8 +23,8 @@ StaticsLoadDialog::StaticsLoadDialog(QWidget* parent)
     setupUi();
     AppTheme::applyLoadDialogTypography(this);
     setWindowTitle(tr("Statics CSV Load Settings"));
-    setMinimumWidth(520);
-    setMinimumHeight(520);
+    setMinimumWidth(880);
+    setMinimumHeight(480);
 }
 
 void StaticsLoadDialog::setSourceFile(const QString& path)
@@ -213,6 +213,12 @@ void StaticsLoadDialog::setupUi()
 {
     auto* main_layout = new QVBoxLayout(this);
 
+    auto* content_layout = new QHBoxLayout();
+    content_layout->setSpacing(12);
+
+    auto* params_column = new QVBoxLayout();
+    params_column->setSpacing(8);
+
     auto* mode_group = new QGroupBox(tr("Location Mode"), this);
     auto* mode_layout = new QVBoxLayout(mode_group);
 
@@ -225,7 +231,7 @@ void StaticsLoadDialog::setupUi()
     connect(trace_mode_radio_, &QRadioButton::toggled, this, &StaticsLoadDialog::onModeChanged);
     mode_layout->addWidget(trace_mode_radio_);
 
-    main_layout->addWidget(mode_group);
+    params_column->addWidget(mode_group);
 
     auto* col_group = new QGroupBox(tr("Column Mapping"), this);
     auto* col_layout = new QFormLayout(col_group);
@@ -248,7 +254,7 @@ void StaticsLoadDialog::setupUi()
     time_unit_combo_->addItem(tr("Milliseconds"), 1);
     col_layout->addRow(tr("Value units:"), time_unit_combo_);
 
-    main_layout->addWidget(col_group);
+    params_column->addWidget(col_group);
 
     auto* range_group = new QGroupBox(tr("Coordinate Matching"), this);
     auto* range_layout = new QVBoxLayout(range_group);
@@ -279,19 +285,29 @@ void StaticsLoadDialog::setupUi()
     connect(nearest_trace_radio_, &QRadioButton::toggled, this, &StaticsLoadDialog::onMatchModeChanged);
     connect(range_match_radio_, &QRadioButton::toggled, this, &StaticsLoadDialog::onMatchModeChanged);
 
-    main_layout->addWidget(range_group);
+    params_column->addWidget(range_group);
+    params_column->addStretch();
+
+    auto* previews_column = new QVBoxLayout();
+    previews_column->setSpacing(8);
 
     auto* map_group = new QGroupBox(tr("Map Preview"), this);
     auto* map_layout = new QVBoxLayout(map_group);
     map_preview_ = new ProfileOverlayMapWidget(map_group);
-    map_layout->addWidget(map_preview_);
-    main_layout->addWidget(map_group);
+    map_preview_->setMinimumSize(280, 220);
+    map_layout->addWidget(map_preview_, 1);
+    previews_column->addWidget(map_group, 1);
 
     auto* series_group = new QGroupBox(tr("Statics Preview"), this);
     auto* series_layout = new QVBoxLayout(series_group);
     series_preview_ = new TraceSeriesPlotWidget(series_group);
+    series_preview_->setMinimumHeight(140);
     series_layout->addWidget(series_preview_);
-    main_layout->addWidget(series_group);
+    previews_column->addWidget(series_group);
+
+    content_layout->addLayout(params_column, 0);
+    content_layout->addLayout(previews_column, 1);
+    main_layout->addLayout(content_layout, 1);
 
     connect(x_col_combo_, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &StaticsLoadDialog::onPreviewSettingsChanged);
