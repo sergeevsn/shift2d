@@ -422,11 +422,11 @@ void MainWindow::createLeftPanel()
     shift_layout->setHorizontalSpacing(12);
 
     extra_shift_spin_ = new QDoubleSpinBox(mode_group_box);
-    extra_shift_spin_->setRange(-10.0, 10.0);
-    extra_shift_spin_->setDecimals(4);
-    extra_shift_spin_->setSingleStep(0.001);
+    extra_shift_spin_->setRange(-10000.0, 10000.0);
+    extra_shift_spin_->setDecimals(1);
+    extra_shift_spin_->setSingleStep(1.0);
     extra_shift_spin_->setValue(0.0);
-    extra_shift_spin_->setSuffix(tr(" s"));
+    extra_shift_spin_->setSuffix(tr(" ms"));
     connect(extra_shift_spin_, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
             this, &MainWindow::onExtraShiftChanged);
     shift_layout->addRow(tr("Extra shift"), extra_shift_spin_);
@@ -1054,7 +1054,7 @@ void MainWindow::onClipChanged(double value)
 
 void MainWindow::onExtraShiftChanged(double value)
 {
-    extra_shift_value_ = value;
+    extra_shift_value_ = value / 1000.0;
     applyStaticsAndUpdate();
 }
 

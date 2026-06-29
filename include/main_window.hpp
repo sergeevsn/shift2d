@@ -172,7 +172,7 @@ private:
     // Настройки отображения
     ColorMap current_palette_ = ColorMap::Grayscale;
     int extra_shift_mode_ = 0;  // 0=none, 1=forward, 2=inverse
-    double extra_shift_value_ = 0.0;
+    double extra_shift_value_ = 0.0;  // seconds; UI shows milliseconds
 
     // Окно отображения
     int view_first_trace_ = 0;
