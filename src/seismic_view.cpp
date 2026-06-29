@@ -474,8 +474,8 @@ void SeismicView::drawStaticsCurve(QPainter& p, const PlotRect& statics_rect)
     const int axis_x = kLeftMargin - 12;
     const int tick_label_left = kTimeAxisTitleColumn + 4;
     const int tick_label_right = axis_x - kTimeTickLabelGap;
-    const int min_y = yForStatic(min_static);
-    const int max_y = yForStatic(max_static);
+    const int min_y = yForStatic(axis_min);
+    const int max_y = yForStatic(axis_max);
     p.drawLine(axis_x, statics_rect.top, axis_x, statics_rect.bottom);
     p.drawLine(axis_x - 4, min_y, axis_x, min_y);
     p.drawLine(axis_x - 4, max_y, axis_x, max_y);
@@ -485,14 +485,15 @@ void SeismicView::drawStaticsCurve(QPainter& p, const PlotRect& statics_rect)
     p.setFont(axis_font);
     p.setPen(AppTheme::axisText());
 
-    const double min_ms = static_cast<double>(min_static) * 1000.0;
-    const double max_ms = static_cast<double>(max_static) * 1000.0;
+    const double min_ms = static_cast<double>(axis_min) * 1000.0;
+    const double max_ms = static_cast<double>(axis_max) * 1000.0;
     const QFontMetrics fm(axis_font);
     const int label_h = fm.height();
     const auto draw_tick_label = [&](int y, double ms) {
-        if (y - label_h / 2 < statics_rect.top || y + label_h / 2 > statics_rect.bottom)
-            return;
-        QRect label(tick_label_left, y - label_h / 2, tick_label_right - tick_label_left, label_h);
+        const int label_y = std::clamp(y, statics_rect.top + label_h / 2,
+                                       statics_rect.bottom - label_h / 2);
+        QRect label(tick_label_left, label_y - label_h / 2,
+                    tick_label_right - tick_label_left, label_h);
         p.drawText(label, Qt::AlignRight | Qt::AlignVCenter,
                    QStringLiteral("%1 ms").arg(QString::number(ms, 'f', 1)));
     };

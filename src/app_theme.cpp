@@ -69,7 +69,7 @@ void applyLoadDialogTypography(QWidget* root)
         return;
 
     QFont dialog_font = root->font();
-    dialog_font.setPointSize(11);
+    dialog_font.setPointSize(10);
     root->setFont(dialog_font);
 
     const auto set_widget_font = [&](QWidget* widget, int point_size) {
@@ -79,21 +79,15 @@ void applyLoadDialogTypography(QWidget* root)
     };
 
     for (QGroupBox* box : root->findChildren<QGroupBox*>())
-        set_widget_font(box, 11);
+        set_widget_font(box, 10);
     for (QAbstractButton* button : root->findChildren<QAbstractButton*>())
-        set_widget_font(button, 11);
+        set_widget_font(button, 10);
     for (QComboBox* combo : root->findChildren<QComboBox*>())
-        set_widget_font(combo, 11);
+        set_widget_font(combo, 10);
     for (QAbstractSpinBox* spin : root->findChildren<QAbstractSpinBox*>())
-        set_widget_font(spin, 11);
-    for (QLabel* label : root->findChildren<QLabel*>()) {
-        if (label->objectName() == QStringLiteral("dialogHint"))
-            set_widget_font(label, 10);
-        else if (label->objectName() == QStringLiteral("dialogOptionLabel"))
-            set_widget_font(label, 11);
-        else
-            set_widget_font(label, 11);
-    }
+        set_widget_font(spin, 10);
+    for (QLabel* label : root->findChildren<QLabel*>())
+        set_widget_font(label, 10);
 }
 
 QColor canvasBackground() { return kCanvasBackground; }
