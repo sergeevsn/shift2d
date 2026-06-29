@@ -341,6 +341,11 @@ void MainWindow::createLeftPanel()
     mode_group_->addButton(mode_inverse_radio_, 2);
     mode_layout->addWidget(mode_inverse_radio_);
 
+    QFont apply_mode_font = mode_forward_radio_->font();
+    apply_mode_font.setBold(true);
+    mode_forward_radio_->setFont(apply_mode_font);
+    mode_inverse_radio_->setFont(apply_mode_font);
+
 #if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
     connect(mode_group_, QOverload<int>::of(&QButtonGroup::idClicked),
 #else
