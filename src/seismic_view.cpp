@@ -7,6 +7,7 @@
 #include <QResizeEvent>
 #include <QMouseEvent>
 #include <QWheelEvent>
+#include <QFontMetrics>
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -117,6 +118,21 @@ void SeismicView::clearStaticsCurve()
     update();
 }
 
+int SeismicView::traceAxisBandHeight() const
+{
+    QFont axis_font = font();
+    axis_font.setPointSize(9);
+    QFont title_font = axis_font;
+    title_font.setBold(true);
+
+    const QFontMetrics tick_fm(axis_font);
+    const QFontMetrics title_fm(title_font);
+
+    return kTraceAxisLineOffset + kTraceTickLength + kTraceTickLabelGap
+         + tick_fm.height() + kTraceAxisTitleGap + title_fm.height()
+         + kTraceAxisBottomPadding;
+}
+
 SeismicView::PlotRect SeismicView::plotRect() const
 {
     const int w = width();
@@ -125,7 +141,7 @@ SeismicView::PlotRect SeismicView::plotRect() const
     plot.left = kLeftMargin;
     plot.right = std::max(plot.left + 1, w - kRightMargin);
     plot.top = kTopMargin + staticsRegionHeight() + kStaticsDataGap;
-    plot.bottom = std::max(plot.top + 1, h - kBottomMargin);
+    plot.bottom = std::max(plot.top + 1, h - traceAxisBandHeight());
     return plot;
 }
 
@@ -137,13 +153,13 @@ SeismicView::PlotRect SeismicView::fullPlotRect() const
     plot.left = kLeftMargin;
     plot.right = std::max(plot.left + 1, w - kRightMargin);
     plot.top = kTopMargin;
-    plot.bottom = std::max(plot.top + 1, h - kBottomMargin);
+    plot.bottom = std::max(plot.top + 1, h - traceAxisBandHeight());
     return plot;
 }
 
 int SeismicView::staticsRegionHeight() const
 {
-    int total = std::max(1, height() - kTopMargin - kBottomMargin);
+    int total = std::max(1, height() - kTopMargin - traceAxisBandHeight());
     return std::max(1, total / 5);
 }
 
@@ -202,7 +218,7 @@ float SeismicView::getAmplitudeAt(int trace_idx, int sample_idx) const
 void SeismicView::updateCachedGeometry()
 {
     int h = height();
-    const int total_plot_h = std::max(1, h - kTopMargin - kBottomMargin);
+    const int total_plot_h = std::max(1, h - kTopMargin - traceAxisBandHeight());
     const int statics_h = staticsRegionHeight();
     const int plot_h = std::max(1, total_plot_h - statics_h - kStaticsDataGap);
     if (plot_h <= 0 || sample_count_ <= 0) {
@@ -601,7 +617,9 @@ void SeismicView::drawAxes(QPainter& p, const PlotRect& plot)
 
         const QFontMetrics title_fm(titleFont);
         const int title_h = title_fm.height();
-        const int title_top = trace_tick_label_top + trace_tick_label_h + kTraceAxisTitleGap;
+        const int title_top = std::min(
+            trace_tick_label_top + trace_tick_label_h + kTraceAxisTitleGap,
+            height() - title_h - kTraceAxisBottomPadding);
 
         p.drawText(QRect(plot.left, title_top, plot.width(), title_h),
                    Qt::AlignCenter,
