@@ -50,8 +50,8 @@ MainWindow::MainWindow(QWidget* parent)
     setupMenu();
     updateInfoMenuActions();
     setWindowTitle(tr("Shift2D — SEG-Y Statics"));
-    setMinimumSize(1200, 800);
-    resize(1440, 920);
+    setMinimumSize(1200, 950);
+    resize(1440, 1070);
 }
 
 MainWindow::~MainWindow() = default;
