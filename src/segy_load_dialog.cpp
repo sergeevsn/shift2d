@@ -1,4 +1,5 @@
 #include "segy_load_dialog.hpp"
+#include "app_theme.hpp"
 
 #include "segy_reader.hpp"
 
@@ -9,6 +10,7 @@
 #include <QGroupBox>
 #include <QRadioButton>
 #include <QButtonGroup>
+#include <QStyle>
 #include <QPaintEvent>
 #include <QPainter>
 #include <algorithm>
@@ -48,10 +50,10 @@ protected:
     {
         Q_UNUSED(event);
         QPainter p(this);
-        p.fillRect(rect(), QColor(245, 245, 245));
+        p.fillRect(rect(), AppTheme::plotSurface());
 
         if (xs_.empty() || ys_.empty() || xs_.size() != ys_.size()) {
-            p.setPen(Qt::gray);
+            p.setPen(AppTheme::emptyStateHint());
             p.drawText(rect(), Qt::AlignCenter, tr("No coordinate preview"));
             return;
         }
@@ -83,12 +85,12 @@ protected:
                          side,
                          side);
 
-        p.setPen(QColor(200, 200, 200));
+        p.setPen(AppTheme::plotBorder());
         p.drawRect(plot);
 
         p.setRenderHint(QPainter::Antialiasing, true);
         p.setPen(Qt::NoPen);
-        p.setBrush(QColor(30, 120, 220));
+        p.setBrush(AppTheme::accent());
 
         for (size_t i = 0; i < xs_.size(); ++i) {
             const double rel_x = (xs_[i] - plot_min_x) / uniform_span;
@@ -223,6 +225,9 @@ void SegyLoadDialog::analyzeFile(const QString& path)
         const auto& option = options_[i];
         option_labels_[i]->setText(QStringLiteral("%1\n%2")
                                        .arg(option.title, option.range_text));
+        option_labels_[i]->setProperty("valid", option.valid);
+        option_labels_[i]->style()->unpolish(option_labels_[i]);
+        option_labels_[i]->style()->polish(option_labels_[i]);
         option_radios_[i]->setEnabled(true);
         option_radios_[i]->setChecked(i == selected_index_);
     }
@@ -251,8 +256,8 @@ void SegyLoadDialog::setupUi()
     for (int i = 0; i < 3; ++i) {
         option_radios_[i] = new QRadioButton(this);
         option_labels_[i] = new QLabel(this);
+        option_labels_[i]->setObjectName(QStringLiteral("dialogOptionLabel"));
         option_labels_[i]->setWordWrap(true);
-        option_labels_[i]->setStyleSheet("QLabel { color: #444; font-size: 11px; }");
 
         auto* row = new QHBoxLayout();
         row->addWidget(option_radios_[i]);
@@ -276,14 +281,15 @@ void SegyLoadDialog::setupUi()
     auto* info_label = new QLabel(
         tr("Select the byte pair whose coordinates change monotonically along traces."),
         this);
+    info_label->setObjectName(QStringLiteral("dialogHint"));
     info_label->setWordWrap(true);
-    info_label->setStyleSheet("QLabel { color: gray; font-size: 11px; }");
     main_layout->addWidget(info_label);
 
     auto* button_layout = new QHBoxLayout();
     button_layout->addStretch();
 
     ok_button_ = new QPushButton(tr("OK"), this);
+    ok_button_->setObjectName(QStringLiteral("primaryButton"));
     ok_button_->setDefault(true);
     connect(ok_button_, &QPushButton::clicked, this, &SegyLoadDialog::onOkClicked);
     button_layout->addWidget(ok_button_);

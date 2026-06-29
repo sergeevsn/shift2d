@@ -1,4 +1,5 @@
 #include "load_preview_widgets.hpp"
+#include "app_theme.hpp"
 
 #include <QPaintEvent>
 #include <QPainter>
@@ -116,31 +117,31 @@ void ProfileOverlayMapWidget::paintEvent(QPaintEvent* event)
 {
     Q_UNUSED(event);
     QPainter p(this);
-    p.fillRect(rect(), QColor(245, 245, 245));
+    p.fillRect(rect(), AppTheme::plotSurface());
 
     if (profile_xs_.empty() && overlay_xs_.empty()) {
-        p.setPen(Qt::gray);
+        p.setPen(AppTheme::emptyStateHint());
         p.drawText(rect(), Qt::AlignCenter, tr("No coordinate preview"));
         return;
     }
 
     const Bounds bounds = mergedBounds(profile_xs_, profile_ys_, overlay_xs_, overlay_ys_);
-  if (bounds.uniform_span <= 0.0)
+    if (bounds.uniform_span <= 0.0)
         return;
 
     const QRect plot = squarePlotRect(rect().adjusted(12, 8, -12, -8));
-    p.setPen(QColor(200, 200, 200));
+    p.setPen(AppTheme::plotBorder());
     p.drawRect(plot);
 
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setPen(Qt::NoPen);
-    p.setBrush(QColor(170, 170, 170));
+    p.setBrush(AppTheme::accentMuted());
     for (size_t i = 0; i < profile_xs_.size(); ++i) {
         const QPoint pt = mapPoint(profile_xs_[i], profile_ys_[i], plot, bounds);
-        p.drawEllipse(pt, 1, 1);
+        p.drawEllipse(pt, 2, 2);
     }
 
-    p.setBrush(QColor(210, 60, 60));
+    p.setBrush(AppTheme::horizonLine());
     for (size_t i = 0; i < overlay_xs_.size(); ++i) {
         const QPoint pt = mapPoint(overlay_xs_[i], overlay_ys_[i], plot, bounds);
         p.drawEllipse(pt, 3, 3);
@@ -168,16 +169,16 @@ void TraceSeriesPlotWidget::paintEvent(QPaintEvent* event)
 {
     Q_UNUSED(event);
     QPainter p(this);
-    p.fillRect(rect(), QColor(250, 250, 250));
+    p.fillRect(rect(), AppTheme::plotSurface());
 
     if (traces_.empty() || values_.empty() || traces_.size() != values_.size()) {
-        p.setPen(Qt::gray);
+        p.setPen(AppTheme::emptyStateHint());
         p.drawText(rect(), Qt::AlignCenter, tr("No series preview"));
         return;
     }
 
     const QRect plot = rect().adjusted(48, 14, -12, -24);
-    p.setPen(QColor(210, 210, 210));
+    p.setPen(AppTheme::plotBorder());
     p.drawRect(plot);
 
     double min_x = traces_.front();
@@ -205,7 +206,7 @@ void TraceSeriesPlotWidget::paintEvent(QPaintEvent* event)
     QFont label_font = p.font();
     label_font.setPointSize(8);
     p.setFont(label_font);
-    p.setPen(Qt::black);
+    p.setPen(AppTheme::axisText());
 
     p.save();
     const int label_cx = 20;
@@ -214,6 +215,10 @@ void TraceSeriesPlotWidget::paintEvent(QPaintEvent* event)
     p.rotate(-90.0);
     p.drawText(QRect(-60, -8, 120, 16), Qt::AlignCenter, y_label_);
     p.restore();
+
+    p.setPen(AppTheme::gridLine());
+    p.drawLine(plot.left(), plot.top() + plot.height() / 2,
+               plot.right(), plot.top() + plot.height() / 2);
 
     p.setRenderHint(QPainter::Antialiasing, true);
     QPainterPath path;
@@ -228,13 +233,13 @@ void TraceSeriesPlotWidget::paintEvent(QPaintEvent* event)
             path.lineTo(pt);
     }
 
-    QPen line_pen(QColor(30, 120, 220), 1.5);
+    QPen line_pen(AppTheme::staticsCurve(), 2.0);
     line_pen.setCosmetic(true);
     p.setPen(line_pen);
     p.drawPath(path);
 
     p.setPen(Qt::NoPen);
-    p.setBrush(QColor(30, 120, 220));
+    p.setBrush(AppTheme::staticsCurve());
     for (size_t i = 0; i < traces_.size(); ++i) {
         const double rel_x = (traces_[i] - min_x) / (max_x - min_x);
         const double rel_y = (values_[i] - min_y) / (max_y - min_y);
@@ -243,7 +248,7 @@ void TraceSeriesPlotWidget::paintEvent(QPaintEvent* event)
         p.drawEllipse(pt, 2.5, 2.5);
     }
 
-    p.setPen(Qt::gray);
+    p.setPen(AppTheme::axisText());
     p.drawText(QRect(plot.left(), plot.bottom() + 4, plot.width(), 16),
                Qt::AlignCenter,
                tr("Trace"));

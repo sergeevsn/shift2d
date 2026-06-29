@@ -24,6 +24,7 @@ class QCheckBox;
 class QAction;
 class QActionGroup;
 class QScrollBar;
+class QFrame;
 
 class SegyReader;
 class SegyWriter;
@@ -63,6 +64,10 @@ private slots:
     // Информация под курсором
     void onHoverInfoChanged(int trace_index, double time_ms, float amplitude, bool valid);
 
+    void onInfoSegyProfile();
+    void onInfoStatics();
+    void onInfoHorizon();
+
 private:
     void setupUi();
     void setupMenu();
@@ -84,6 +89,8 @@ private:
     float computeClipForTraces(const std::vector<Trace>& traces) const;
     void updateScrollbars();
     void syncLimitControls();
+    void updateFileCard(QFrame* card, QLabel* name_label, const QString& name, bool loaded);
+    void updateInfoMenuActions();
 
     // Вспомогательные функции для интерполяции
     std::vector<float> fillMissingStatics(const std::vector<float>& statics,
@@ -99,9 +106,12 @@ private:
     QWidget* left_panel_ = nullptr;
 
     // Левая панель
-    QLabel* segy_path_label_ = nullptr;
-    QLabel* statics_path_label_ = nullptr;
-    QLabel* horizon_path_label_ = nullptr;
+    QFrame* segy_card_ = nullptr;
+    QFrame* statics_card_ = nullptr;
+    QFrame* horizon_card_ = nullptr;
+    QLabel* segy_name_label_ = nullptr;
+    QLabel* statics_name_label_ = nullptr;
+    QLabel* horizon_name_label_ = nullptr;
     QLabel* status_label_ = nullptr;
 
     QButtonGroup* mode_group_ = nullptr;
@@ -129,6 +139,10 @@ private:
 
     QAction* zoom_action_ = nullptr;
     QAction* pan_action_ = nullptr;
+
+    QAction* info_segy_action_ = nullptr;
+    QAction* info_statics_action_ = nullptr;
+    QAction* info_horizon_action_ = nullptr;
 
     // Данные
     std::unique_ptr<SegyReader> reader_;

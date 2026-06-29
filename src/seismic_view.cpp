@@ -1,4 +1,5 @@
 #include "seismic_view.hpp"
+#include "app_theme.hpp"
 
 #include <QPainter>
 #include <QPainterPath>
@@ -15,7 +16,6 @@ SeismicView::SeismicView(QWidget* parent)
     : QWidget(parent)
 {
     setAutoFillBackground(true);
-    setBackgroundRole(QPalette::Base);
     setMouseTracking(true);
     setFocusPolicy(Qt::StrongFocus);
 
@@ -234,10 +234,13 @@ void SeismicView::paintEvent(QPaintEvent* event)
     Q_UNUSED(event);
 
     QPainter p(this);
-    p.fillRect(rect(), palette().brush(QPalette::Window));
+    p.setRenderHint(QPainter::TextAntialiasing, true);
+    p.fillRect(rect(), AppTheme::canvasBackground());
 
-    if (traces_.empty() || dt_ <= 0.f || trace_count_ <= 0)
+    if (traces_.empty() || dt_ <= 0.f || trace_count_ <= 0) {
+        drawEmptyState(p);
         return;
+    }
 
     PlotRect data_plot = plotRect();
     PlotRect statics_plot = fullPlotRect();
@@ -245,11 +248,46 @@ void SeismicView::paintEvent(QPaintEvent* event)
     statics_plot.bottom = statics_plot.top + statics_height;
     data_plot.top = statics_plot.bottom + kStaticsDataGap;
 
+    drawPlotFrame(p, statics_plot);
+    drawPlotFrame(p, data_plot);
+
     drawStaticsCurve(p, statics_plot);
     drawSeismicImage(p, data_plot);
     drawAxes(p, data_plot);
     drawHorizon(p, data_plot);
     drawZoomRect(p);
+}
+
+void SeismicView::drawEmptyState(QPainter& p)
+{
+    const int cy = height() / 2;
+
+    QFont title_font = p.font();
+    title_font.setPointSize(14);
+    title_font.setWeight(QFont::DemiBold);
+    p.setFont(title_font);
+    p.setPen(AppTheme::emptyStateText());
+
+    p.drawText(QRect(0, cy - 48, width(), 28), Qt::AlignCenter,
+               tr("No seismic section loaded"));
+
+    QFont hint_font = p.font();
+    hint_font.setPointSize(10);
+    hint_font.setWeight(QFont::Normal);
+    p.setFont(hint_font);
+    p.setPen(AppTheme::emptyStateHint());
+
+    p.drawText(QRect(0, cy - 16, width(), 22), Qt::AlignCenter,
+               tr("Open a SEG-Y file from the sidebar or File menu"));
+    p.drawText(QRect(0, cy + 8, width(), 22), Qt::AlignCenter,
+               tr("Drag to zoom  ·  Scroll to zoom in/out  ·  Right-click to reset"));
+}
+
+void SeismicView::drawPlotFrame(QPainter& p, const PlotRect& plot)
+{
+    p.setPen(QPen(AppTheme::plotBorder(), 1));
+    p.setBrush(AppTheme::plotSurface());
+    p.drawRect(plot.left, plot.top, plot.width(), plot.height());
 }
 
 void SeismicView::drawSeismicImage(QPainter& p, const PlotRect& plot)
@@ -261,7 +299,7 @@ void SeismicView::drawSeismicImage(QPainter& p, const PlotRect& plot)
         return;
 
     QImage img(img_w, img_h, QImage::Format_RGB32);
-    img.fill(palette().color(QPalette::Window).rgb());
+    img.fill(AppTheme::plotSurface().rgb());
 
     const float samples_per_px = samples_per_pixel_y_;
 
@@ -366,7 +404,7 @@ void SeismicView::drawStaticsCurve(QPainter& p, const PlotRect& statics_rect)
         return;
 
     QPainterPath path;
-    QPen line_pen(QColor(20, 120, 230), 1.5);
+    QPen line_pen(AppTheme::staticsCurve(), 2.0);
     line_pen.setCosmetic(true);
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setPen(line_pen);
@@ -402,7 +440,7 @@ void SeismicView::drawStaticsCurve(QPainter& p, const PlotRect& statics_rect)
         }
     }
 
-    QPen base_pen(QColor(200, 200, 200), 1.0);
+    QPen base_pen(AppTheme::gridLine(), 1.0);
     base_pen.setCosmetic(true);
     p.setPen(base_pen);
     if (axis_min <= 0.0f && axis_max >= 0.0f) {
@@ -413,7 +451,7 @@ void SeismicView::drawStaticsCurve(QPainter& p, const PlotRect& statics_rect)
     p.setPen(line_pen);
     p.drawPath(path);
 
-    QPen axis_pen(QColor(120, 120, 120), 1.0);
+    QPen axis_pen(AppTheme::axisLine(), 1.0);
     axis_pen.setCosmetic(true);
     p.setPen(axis_pen);
 
@@ -425,8 +463,9 @@ void SeismicView::drawStaticsCurve(QPainter& p, const PlotRect& statics_rect)
     p.drawLine(axis_x - 4, max_y, axis_x, max_y);
 
     QFont axis_font = p.font();
-    axis_font.setPointSize(8);
+    axis_font.setPointSize(9);
     p.setFont(axis_font);
+    p.setPen(AppTheme::axisText());
 
     const double min_ms = static_cast<double>(min_static) * 1000.0;
     const double max_ms = static_cast<double>(max_static) * 1000.0;
@@ -441,15 +480,17 @@ void SeismicView::drawStaticsCurve(QPainter& p, const PlotRect& statics_rect)
 void SeismicView::drawAxes(QPainter& p, const PlotRect& plot)
 {
     p.setRenderHint(QPainter::Antialiasing, false);
-    QPen axisPen(Qt::black, 1.0);
+    QPen axisPen(AppTheme::axisLine(), 1.0);
     p.setPen(axisPen);
 
     QFont axisFont = p.font();
-    axisFont.setPointSize(8);
+    axisFont.setPointSize(9);
     p.setFont(axisFont);
+    p.setPen(AppTheme::axisText());
 
     // Ось времени (Y) слева
     const int axis_left_x = kLeftMargin - 10;
+    p.setPen(AppTheme::axisLine());
     p.drawLine(axis_left_x, plot.top, axis_left_x, plot.bottom);
 
     // Рисуем тики времени
@@ -477,10 +518,12 @@ void SeismicView::drawAxes(QPainter& p, const PlotRect& plot)
             double rel = (tick - start_ms) / range_ms;
             int y = plot.top + static_cast<int>(rel * plot.height());
 
+            p.setPen(AppTheme::axisLine());
             p.drawLine(axis_left_x - 4, y, axis_left_x, y);
 
             QString label = QString::number(tick, 'f', (step < 1.0) ? 1 : 0);
             QRect textRect(0, y - 7, axis_left_x - 6, 14);
+            p.setPen(AppTheme::axisText());
             p.drawText(textRect, Qt::AlignRight | Qt::AlignVCenter, label);
         }
     }
@@ -489,10 +532,12 @@ void SeismicView::drawAxes(QPainter& p, const PlotRect& plot)
     {
         QFont titleFont = axisFont;
         titleFont.setBold(true);
+        titleFont.setPointSize(9);
         p.setFont(titleFont);
+        p.setPen(AppTheme::axisText());
 
         p.save();
-        int cx = axis_left_x - 40;
+        int cx = axis_left_x - 42;
         int cy = plot.top + plot.height() / 2;
         p.translate(cx, cy);
         p.rotate(-90.0);
@@ -504,6 +549,7 @@ void SeismicView::drawAxes(QPainter& p, const PlotRect& plot)
 
     // Ось трасс (X) снизу
     const int axis_bottom_y = plot.bottom + 10;
+    p.setPen(AppTheme::axisLine());
     p.drawLine(plot.left, axis_bottom_y, plot.right, axis_bottom_y);
 
     // Рисуем тики трасс
@@ -517,11 +563,13 @@ void SeismicView::drawAxes(QPainter& p, const PlotRect& plot)
                 : 0.f;
             int x = plot.left + static_cast<int>(t * static_cast<float>(plot.width() - 1));
 
+            p.setPen(AppTheme::axisLine());
             p.drawLine(x, axis_bottom_y, x, axis_bottom_y + 4);
 
             int global_idx = first_trace_ + i;
             QString label = QString::number(global_idx);
             QRect textRect(x - 25, axis_bottom_y + 6, 50, 14);
+            p.setPen(AppTheme::axisText());
             p.drawText(textRect, Qt::AlignHCenter | Qt::AlignTop, label);
         }
     }
@@ -530,11 +578,13 @@ void SeismicView::drawAxes(QPainter& p, const PlotRect& plot)
     {
         QFont titleFont = axisFont;
         titleFont.setBold(true);
+        titleFont.setPointSize(9);
         p.setFont(titleFont);
+        p.setPen(AppTheme::axisText());
 
         p.drawText(QRect(plot.left, plot.bottom + 20, plot.width(), 20),
                    Qt::AlignCenter,
-                   tr("Trace"));
+                   tr("Trace index"));
     }
 }
 
@@ -582,10 +632,27 @@ void SeismicView::drawHorizon(QPainter& p, const PlotRect& plot)
     }
 
     p.setRenderHint(QPainter::Antialiasing, true);
-    p.setPen(Qt::NoPen);
-    p.setBrush(QColor(255, 255, 0));
 
-    constexpr qreal point_radius = 2.5;
+    QPainterPath horizon_path;
+    bool started = false;
+    for (const QPointF& pt : plot_points) {
+        if (!started) {
+            horizon_path.moveTo(pt);
+            started = true;
+        } else {
+            horizon_path.lineTo(pt);
+        }
+    }
+
+    QPen horizon_pen(AppTheme::horizonLine(), 2.0);
+    horizon_pen.setCosmetic(true);
+    p.setPen(horizon_pen);
+    p.setBrush(Qt::NoBrush);
+    p.drawPath(horizon_path);
+
+    p.setPen(Qt::NoPen);
+    p.setBrush(AppTheme::horizonLine());
+    constexpr qreal point_radius = 3.0;
     for (const QPointF& pt : plot_points)
         p.drawEllipse(pt, point_radius, point_radius);
 }
@@ -600,8 +667,9 @@ void SeismicView::drawZoomRect(QPainter& p)
     QRect plot_rect(plot.left, plot.top, plot.width(), plot.height());
     sel = sel.intersected(plot_rect);
     if (sel.width() > 2 && sel.height() > 2) {
-        QPen pen(Qt::blue, 1, Qt::DashLine);
-        QColor fill(0, 0, 255, 40);
+        QPen pen(AppTheme::accent(), 1, Qt::DashLine);
+        QColor fill = AppTheme::accent();
+        fill.setAlpha(50);
         p.setPen(pen);
         p.setBrush(fill);
         p.drawRect(sel);

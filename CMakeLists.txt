@@ -31,6 +31,8 @@ endif()
 
 set(SHIFT2D_SOURCES
     src/main.cpp
+    src/app_theme.cpp
+    src/data_info_dialog.cpp
     src/main_window.cpp
     src/seismic_view.cpp
     src/segy_reader.cpp
@@ -43,6 +45,8 @@ set(SHIFT2D_SOURCES
 )
 
 set(SHIFT2D_HEADERS
+    include/app_theme.hpp
+    include/data_info_dialog.hpp
     include/main_window.hpp
     include/seismic_view.hpp
     include/segy_reader.hpp
@@ -55,7 +59,7 @@ set(SHIFT2D_HEADERS
     include/load_preview_widgets.hpp
 )
 
-add_executable(shift2d ${SHIFT2D_SOURCES} ${SHIFT2D_HEADERS})
+add_executable(shift2d ${SHIFT2D_SOURCES} ${SHIFT2D_HEADERS} resources/shift2d.qrc)
 
 target_include_directories(shift2d
     PRIVATE

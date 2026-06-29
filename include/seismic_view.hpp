@@ -110,6 +110,8 @@ private:
 
     // Отрисовка
     void drawSeismicImage(QPainter& p, const PlotRect& plot);
+    void drawPlotFrame(QPainter& p, const PlotRect& plot);
+    void drawEmptyState(QPainter& p);
     void drawAxes(QPainter& p, const PlotRect& plot);
     void drawHorizon(QPainter& p, const PlotRect& plot);
     void drawZoomRect(QPainter& p);

@@ -24,7 +24,9 @@
 #include <QFileInfo>
 #include <QSizePolicy>
 #include <Qt>
-#include <QDebug>
+#include <QScrollArea>
+#include <QFrame>
+#include <QToolButton>
 
 #include "seismic_view.hpp"
 #include "segy_load_dialog.hpp"
@@ -32,6 +34,7 @@
 #include "horizon_load_dialog.hpp"
 #include "segy_reader.hpp"
 #include "segy_writer.hpp"
+#include "data_info_dialog.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -46,8 +49,10 @@ MainWindow::MainWindow(QWidget* parent)
     setupUi();
     setupMenu();
     setupToolbar();
-    setWindowTitle(tr("SEG-Y Statics Applier"));
-    resize(1400, 900);
+    updateInfoMenuActions();
+    setWindowTitle(tr("Shift2D — SEG-Y Statics"));
+    setMinimumSize(1200, 800);
+    resize(1440, 920);
 }
 
 MainWindow::~MainWindow() = default;
@@ -62,7 +67,7 @@ void MainWindow::setupUi()
     // Левая панель с настройками
     createLeftPanel();
     left_panel_->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
-    main_layout->addWidget(left_panel_, 0, Qt::AlignLeft | Qt::AlignTop);
+    main_layout->addWidget(left_panel_, 0);
 
     // Правая часть - виджет сейсмики и скроллбары
     auto* right_widget = new QWidget(this);
@@ -71,6 +76,7 @@ void MainWindow::setupUi()
     right_layout->setSpacing(0);
 
     seismic_view_ = new SeismicView(this);
+    seismic_view_->setObjectName(QStringLiteral("seismicCanvas"));
     right_layout->addWidget(seismic_view_, 1);
 
     // Горизонтальный скроллбар
@@ -95,8 +101,8 @@ void MainWindow::setupUi()
     setCentralWidget(central);
 
     // Статус-бар
-    status_label_ = new QLabel(tr("No data loaded"), this);
-    statusBar()->addPermanentWidget(status_label_, 1);
+    status_label_ = new QLabel(tr("Ready"), this);
+    statusBar()->addWidget(status_label_, 1);
 
     // Подключаем сигналы seismic_view_
     connect(seismic_view_, &SeismicView::panRequested, this, &MainWindow::onPanRequested);
@@ -136,17 +142,36 @@ void MainWindow::setupMenu()
     exit_action->setShortcut(QKeySequence::Quit);
     connect(exit_action, &QAction::triggered, this, &QWidget::close);
     file_menu->addAction(exit_action);
+
+    auto* info_menu = menuBar()->addMenu(tr("&Info"));
+
+    info_segy_action_ = new QAction(tr("SEG-Y Profile"), this);
+    connect(info_segy_action_, &QAction::triggered, this, &MainWindow::onInfoSegyProfile);
+    info_menu->addAction(info_segy_action_);
+
+    info_statics_action_ = new QAction(tr("Statics"), this);
+    connect(info_statics_action_, &QAction::triggered, this, &MainWindow::onInfoStatics);
+    info_menu->addAction(info_statics_action_);
+
+    info_horizon_action_ = new QAction(tr("Horizon"), this);
+    connect(info_horizon_action_, &QAction::triggered, this, &MainWindow::onInfoHorizon);
+    info_menu->addAction(info_horizon_action_);
 }
 
 void MainWindow::setupToolbar()
 {
     auto* toolbar = addToolBar(tr("View"));
+    toolbar->setObjectName(QStringLiteral("viewToolbar"));
+    toolbar->setMovable(false);
+    toolbar->setFloatable(false);
+    toolbar->setIconSize(QSize(18, 18));
 
     auto* action_group = new QActionGroup(this);
 
     zoom_action_ = new QAction(tr("Zoom"), this);
     zoom_action_->setCheckable(true);
     zoom_action_->setChecked(true);
+    zoom_action_->setToolTip(tr("Drag to zoom (right-click to reset)"));
     connect(zoom_action_, &QAction::toggled, [this](bool on) {
         if (on) seismic_view_->setInteractionMode(SeismicView::InteractionMode::Zoom);
     });
@@ -155,6 +180,7 @@ void MainWindow::setupToolbar()
 
     pan_action_ = new QAction(tr("Pan"), this);
     pan_action_->setCheckable(true);
+    pan_action_->setToolTip(tr("Drag to pan the section"));
     connect(pan_action_, &QAction::toggled, [this](bool on) {
         if (on) seismic_view_->setInteractionMode(SeismicView::InteractionMode::Pan);
     });
@@ -163,135 +189,198 @@ void MainWindow::setupToolbar()
 
     toolbar->addSeparator();
 
-    toolbar->addWidget(new QLabel(tr("Palette:"), this));
+    auto* reset_zoom_action = new QAction(tr("Reset view"), this);
+    reset_zoom_action->setToolTip(tr("Show full section"));
+    connect(reset_zoom_action, &QAction::triggered, this, &MainWindow::onResetZoomRequested);
+    toolbar->addAction(reset_zoom_action);
+
+    toolbar->addSeparator();
+
+    toolbar->addWidget(new QLabel(tr("Palette"), this));
 
     palette_combo_ = new QComboBox(this);
     for (const auto& name : ColorSchemes::getAvailableSchemes()) {
         palette_combo_->addItem(name);
     }
-    palette_combo_->setCurrentIndex(0);  // Grayscale
+    palette_combo_->setCurrentIndex(0);
+    palette_combo_->setToolTip(tr("Amplitude color map"));
     connect(palette_combo_, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &MainWindow::onPaletteChanged);
     toolbar->addWidget(palette_combo_);
 
-    toolbar->addSeparator();
-
-    toolbar->addWidget(new QLabel(tr("Clip:"), this));
+    toolbar->addWidget(new QLabel(tr("Clip"), this));
 
     clip_spin_ = new QDoubleSpinBox(this);
     clip_spin_->setRange(0.0, 1000000.0);
     clip_spin_->setDecimals(2);
     clip_spin_->setValue(0.0);
     clip_spin_->setSingleStep(0.1);
+    clip_spin_->setToolTip(tr("Amplitude clip (0 = auto)"));
     connect(clip_spin_, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
             this, &MainWindow::onClipChanged);
     toolbar->addWidget(clip_spin_);
+
+    toolbar->addSeparator();
+    toolbar->setContextMenuPolicy(Qt::PreventContextMenu);
 }
 
 void MainWindow::createLeftPanel()
 {
     left_panel_ = new QWidget(this);
-    left_panel_->setMinimumWidth(250);
-    left_panel_->setMaximumWidth(350);
-    auto* left_layout = new QVBoxLayout(left_panel_);
-    left_layout->setContentsMargins(5, 5, 5, 5);
+    left_panel_->setObjectName(QStringLiteral("sidebar"));
+    left_panel_->setFixedWidth(300);
 
-    // Группа файлов
-    auto* file_group = new QGroupBox(tr("Files"), left_panel_);
+    auto* outer_layout = new QVBoxLayout(left_panel_);
+    outer_layout->setContentsMargins(12, 12, 12, 12);
+    outer_layout->setSpacing(8);
+
+    auto* title = new QLabel(tr("Shift2D"), left_panel_);
+    title->setObjectName(QStringLiteral("appTitle"));
+    outer_layout->addWidget(title);
+
+    auto* subtitle = new QLabel(tr("SEG-Y statics correction"), left_panel_);
+    subtitle->setObjectName(QStringLiteral("appSubtitle"));
+    outer_layout->addWidget(subtitle);
+    outer_layout->addSpacing(4);
+
+    auto* scroll = new QScrollArea(left_panel_);
+    scroll->setObjectName(QStringLiteral("sidebarScroll"));
+    scroll->setWidgetResizable(true);
+    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    scroll->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
+
+    auto* scroll_content = new QWidget(scroll);
+    auto* left_layout = new QVBoxLayout(scroll_content);
+    left_layout->setContentsMargins(0, 0, 4, 0);
+    left_layout->setSpacing(4);
+
+    auto makeFileRow = [scroll_content](const QString& kind, QLabel** name_label,
+                                        QPushButton** open_button) -> QFrame* {
+        auto* row = new QWidget(scroll_content);
+        auto* row_layout = new QHBoxLayout(row);
+        row_layout->setContentsMargins(0, 0, 0, 0);
+        row_layout->setSpacing(6);
+
+        auto* card = new QFrame(row);
+        card->setObjectName(QStringLiteral("fileCard"));
+        card->setProperty("loaded", false);
+
+        auto* card_layout = new QVBoxLayout(card);
+        card_layout->setContentsMargins(8, 4, 8, 4);
+        card_layout->setSpacing(0);
+
+        auto* kind_label = new QLabel(kind, card);
+        kind_label->setObjectName(QStringLiteral("fileStatusLabel"));
+        card_layout->addWidget(kind_label);
+
+        *name_label = new QLabel(card);
+        (*name_label)->setObjectName(QStringLiteral("fileNameLabel"));
+        (*name_label)->setProperty("empty", true);
+        (*name_label)->setWordWrap(true);
+        card_layout->addWidget(*name_label);
+
+        *open_button = new QPushButton(tr("Open"), row);
+        (*open_button)->setObjectName(QStringLiteral("openFileButton"));
+        (*open_button)->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+
+        row_layout->addWidget(card, 1);
+        row_layout->addWidget(*open_button, 0, Qt::AlignVCenter);
+
+        return card;
+    };
+
+    // --- Data ---
+    auto* file_group = new QGroupBox(tr("Data"), scroll_content);
     auto* file_layout = new QVBoxLayout(file_group);
+    file_layout->setSpacing(6);
 
-    segy_path_label_ = new QLabel(tr("SEGY: not selected"), file_group);
-    segy_path_label_->setWordWrap(true);
-    segy_path_label_->setStyleSheet("QLabel { color: gray; font-size: 11px; }");
-    file_layout->addWidget(segy_path_label_);
-
-    auto* open_segy_btn = new QPushButton(tr("Open SEG-Y..."), file_group);
+    QPushButton* open_segy_btn = nullptr;
+    segy_card_ = makeFileRow(tr("SEG-Y"), &segy_name_label_, &open_segy_btn);
+    updateFileCard(segy_card_, segy_name_label_, tr("Not loaded"), false);
     connect(open_segy_btn, &QPushButton::clicked, this, &MainWindow::onOpenSegy);
-    file_layout->addWidget(open_segy_btn);
+    file_layout->addWidget(segy_card_->parentWidget());
 
-    statics_path_label_ = new QLabel(tr("Statics: not selected"), file_group);
-    statics_path_label_->setWordWrap(true);
-    statics_path_label_->setStyleSheet("QLabel { color: gray; font-size: 11px; }");
-    file_layout->addWidget(statics_path_label_);
-
-    auto* open_statics_btn = new QPushButton(tr("Open Statics CSV..."), file_group);
+    QPushButton* open_statics_btn = nullptr;
+    statics_card_ = makeFileRow(tr("Statics"), &statics_name_label_, &open_statics_btn);
+    updateFileCard(statics_card_, statics_name_label_, tr("Not loaded"), false);
     connect(open_statics_btn, &QPushButton::clicked, this, &MainWindow::onOpenStatics);
-    file_layout->addWidget(open_statics_btn);
+    file_layout->addWidget(statics_card_->parentWidget());
 
-    horizon_path_label_ = new QLabel(tr("Horizon: not selected"), file_group);
-    horizon_path_label_->setWordWrap(true);
-    horizon_path_label_->setStyleSheet("QLabel { color: gray; font-size: 11px; }");
-    file_layout->addWidget(horizon_path_label_);
-
-    auto* open_horizon_btn = new QPushButton(tr("Open Horizon CSV..."), file_group);
+    QPushButton* open_horizon_btn = nullptr;
+    horizon_card_ = makeFileRow(tr("Horizon"), &horizon_name_label_, &open_horizon_btn);
+    updateFileCard(horizon_card_, horizon_name_label_, tr("Not loaded"), false);
     connect(open_horizon_btn, &QPushButton::clicked, this, &MainWindow::onOpenHorizon);
-    file_layout->addWidget(open_horizon_btn);
+    file_layout->addWidget(horizon_card_->parentWidget());
 
-    file_layout->addSpacing(10);
-
-    auto* save_btn = new QPushButton(tr("Save SEG-Y As..."), file_group);
+    auto* save_btn = new QPushButton(tr("Save SEG-Y As…"), file_group);
+    save_btn->setObjectName(QStringLiteral("primaryButton"));
     connect(save_btn, &QPushButton::clicked, this, &MainWindow::onSaveSegy);
     file_layout->addWidget(save_btn);
 
     left_layout->addWidget(file_group);
 
-    // Группа режима статик
-    auto* mode_group = new QGroupBox(tr("Statics Mode"), left_panel_);
-    auto* mode_layout = new QVBoxLayout(mode_group);
+    // --- Statics processing ---
+    auto* mode_group_box = new QGroupBox(tr("Processing"), scroll_content);
+    auto* mode_layout = new QVBoxLayout(mode_group_box);
+    mode_layout->setSpacing(4);
 
     mode_group_ = new QButtonGroup(this);
 
-    mode_none_radio_ = new QRadioButton(tr("No Statics"), mode_group);
+    mode_none_radio_ = new QRadioButton(tr("Preview only"), mode_group_box);
     mode_none_radio_->setChecked(true);
     mode_group_->addButton(mode_none_radio_, 0);
     mode_layout->addWidget(mode_none_radio_);
 
-    mode_forward_radio_ = new QRadioButton(tr("Forward Statics (+)"), mode_group);
+    mode_forward_radio_ = new QRadioButton(tr("Apply forward statics (+)"), mode_group_box);
     mode_group_->addButton(mode_forward_radio_, 1);
     mode_layout->addWidget(mode_forward_radio_);
 
-    mode_inverse_radio_ = new QRadioButton(tr("Inverse Statics (-)"), mode_group);
+    mode_inverse_radio_ = new QRadioButton(tr("Apply inverse statics (−)"), mode_group_box);
     mode_group_->addButton(mode_inverse_radio_, 2);
     mode_layout->addWidget(mode_inverse_radio_);
 
     connect(mode_group_, QOverload<int>::of(&QButtonGroup::idClicked),
             this, &MainWindow::onModeChanged);
 
-    interpolate_checkbox_ = new QCheckBox(tr("Interpolate"), mode_group);
+    interpolate_checkbox_ = new QCheckBox(tr("Interpolate gaps"), mode_group_box);
     interpolate_checkbox_->setChecked(true);
     connect(interpolate_checkbox_, &QCheckBox::toggled, this, [this]() {
         applyStaticsAndUpdate();
     });
     mode_layout->addWidget(interpolate_checkbox_);
 
-    extrapolate_checkbox_ = new QCheckBox(tr("Extrapolate"), mode_group);
+    extrapolate_checkbox_ = new QCheckBox(tr("Extrapolate edges"), mode_group_box);
     extrapolate_checkbox_->setChecked(true);
     connect(extrapolate_checkbox_, &QCheckBox::toggled, this, [this]() {
         applyStaticsAndUpdate();
     });
     mode_layout->addWidget(extrapolate_checkbox_);
 
-    smooth_statics_checkbox_ = new QCheckBox(tr("Smooth Statics"), mode_group);
+    smooth_statics_checkbox_ = new QCheckBox(tr("Smooth statics curve"), mode_group_box);
     connect(smooth_statics_checkbox_, &QCheckBox::toggled, this, [this](bool) {
         updateSmoothStaticsControls();
         applyStaticsAndUpdate();
     });
     mode_layout->addWidget(smooth_statics_checkbox_);
 
-    smooth_statics_options_ = new QWidget(mode_group);
+    smooth_statics_options_ = new QWidget(mode_group_box);
     auto* smooth_layout = new QFormLayout(smooth_statics_options_);
-    smooth_layout->setContentsMargins(0, 0, 0, 0);
+    smooth_layout->setContentsMargins(16, 0, 0, 0);
+    smooth_layout->setHorizontalSpacing(12);
+    smooth_layout->setVerticalSpacing(8);
 
     smooth_filter_type_combo_ = new QComboBox(smooth_statics_options_);
     smooth_filter_type_combo_->addItem(tr("Mean"));
     smooth_filter_type_combo_->addItem(tr("Median"));
-    smooth_layout->addRow(tr("Filter type:"), smooth_filter_type_combo_);
+    smooth_layout->addRow(tr("Filter"), smooth_filter_type_combo_);
 
     smooth_filter_size_spin_ = new QSpinBox(smooth_statics_options_);
     smooth_filter_size_spin_->setRange(1, 999999);
     smooth_filter_size_spin_->setValue(5);
     smooth_filter_size_spin_->setSingleStep(1);
-    smooth_layout->addRow(tr("Filter size:"), smooth_filter_size_spin_);
+    smooth_layout->addRow(tr("Window"), smooth_filter_size_spin_);
 
     mode_layout->addWidget(smooth_statics_options_);
 
@@ -308,61 +397,129 @@ void MainWindow::createLeftPanel()
 
     updateSmoothStaticsControls();
 
-    left_layout->addWidget(mode_group);
+    auto* shift_layout = new QFormLayout();
+    shift_layout->setContentsMargins(0, 8, 0, 0);
+    shift_layout->setHorizontalSpacing(12);
 
-    // Группа дополнительного сдвига
-    auto* shift_group = new QGroupBox(tr("Extra Shift"), left_panel_);
-    auto* shift_layout = new QFormLayout(shift_group);
-
-    extra_shift_spin_ = new QDoubleSpinBox(shift_group);
+    extra_shift_spin_ = new QDoubleSpinBox(mode_group_box);
     extra_shift_spin_->setRange(-10.0, 10.0);
     extra_shift_spin_->setDecimals(4);
     extra_shift_spin_->setSingleStep(0.001);
     extra_shift_spin_->setValue(0.0);
-    extra_shift_spin_->setSuffix(" s");
+    extra_shift_spin_->setSuffix(tr(" s"));
     connect(extra_shift_spin_, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
             this, &MainWindow::onExtraShiftChanged);
-    shift_layout->addRow(tr("Shift:"), extra_shift_spin_);
+    shift_layout->addRow(tr("Extra shift"), extra_shift_spin_);
+    mode_layout->addLayout(shift_layout);
 
-    left_layout->addWidget(shift_group);
+    left_layout->addWidget(mode_group_box);
 
-    // Группа пределов отображения
-    auto* limits_group = new QGroupBox(tr("View Limits"), left_panel_);
+    // --- View limits ---
+    auto* limits_group = new QGroupBox(tr("View window"), scroll_content);
     auto* limits_layout = new QFormLayout(limits_group);
+    limits_layout->setHorizontalSpacing(12);
+    limits_layout->setVerticalSpacing(8);
 
     trace_min_spin_ = new QSpinBox(limits_group);
     trace_min_spin_->setRange(0, 99999999);
     trace_min_spin_->setValue(0);
-    limits_layout->addRow(tr("Trace min:"), trace_min_spin_);
+    limits_layout->addRow(tr("Trace from"), trace_min_spin_);
 
     trace_max_spin_ = new QSpinBox(limits_group);
     trace_max_spin_->setRange(0, 99999999);
     trace_max_spin_->setValue(0);
-    limits_layout->addRow(tr("Trace max:"), trace_max_spin_);
+    limits_layout->addRow(tr("Trace to"), trace_max_spin_);
 
     time_min_spin_ = new QSpinBox(limits_group);
     time_min_spin_->setRange(0, 99999999);
     time_min_spin_->setValue(0);
-    time_min_spin_->setSuffix(" ms");
-    limits_layout->addRow(tr("Time min:"), time_min_spin_);
+    time_min_spin_->setSuffix(tr(" ms"));
+    limits_layout->addRow(tr("Time from"), time_min_spin_);
 
     time_max_spin_ = new QSpinBox(limits_group);
     time_max_spin_->setRange(0, 99999999);
     time_max_spin_->setValue(0);
-    time_max_spin_->setSuffix(" ms");
-    limits_layout->addRow(tr("Time max:"), time_max_spin_);
+    time_max_spin_->setSuffix(tr(" ms"));
+    limits_layout->addRow(tr("Time to"), time_max_spin_);
 
-    apply_limits_btn_ = new QPushButton(tr("Apply Limits"), limits_group);
+    auto* limits_buttons = new QHBoxLayout();
+    limits_buttons->setSpacing(8);
+
+    apply_limits_btn_ = new QPushButton(tr("Apply"), limits_group);
+    apply_limits_btn_->setObjectName(QStringLiteral("secondaryButton"));
     connect(apply_limits_btn_, &QPushButton::clicked, this, &MainWindow::onUpdateView);
-    limits_layout->addRow(apply_limits_btn_);
+    limits_buttons->addWidget(apply_limits_btn_);
 
-    reset_zoom_btn_ = new QPushButton(tr("Reset Zoom"), limits_group);
+    reset_zoom_btn_ = new QPushButton(tr("Reset"), limits_group);
+    reset_zoom_btn_->setObjectName(QStringLiteral("secondaryButton"));
     connect(reset_zoom_btn_, &QPushButton::clicked, this, &MainWindow::onResetZoomRequested);
-    limits_layout->addRow(reset_zoom_btn_);
+    limits_buttons->addWidget(reset_zoom_btn_);
+
+    limits_layout->addRow(limits_buttons);
 
     left_layout->addWidget(limits_group);
 
-    left_layout->addStretch();
+    scroll->setWidget(scroll_content);
+    outer_layout->addWidget(scroll, 1);
+}
+
+void MainWindow::updateFileCard(QFrame* card, QLabel* name_label, const QString& name, bool loaded)
+{
+    if (!card || !name_label)
+        return;
+
+    name_label->setText(name);
+    name_label->setProperty("empty", !loaded);
+    card->setProperty("loaded", loaded);
+
+    name_label->style()->unpolish(name_label);
+    name_label->style()->polish(name_label);
+    card->style()->unpolish(card);
+    card->style()->polish(card);
+}
+
+void MainWindow::updateInfoMenuActions()
+{
+    const bool segy_loaded = reader_ && reader_->isOpen();
+    const bool statics_loaded = !current_statics_path_.isEmpty() && !static_points_.empty();
+    const bool horizon_loaded = !current_horizon_path_.isEmpty() && !horizon_points_.empty();
+
+    if (info_segy_action_)
+        info_segy_action_->setEnabled(segy_loaded);
+    if (info_statics_action_)
+        info_statics_action_->setEnabled(statics_loaded);
+    if (info_horizon_action_)
+        info_horizon_action_->setEnabled(horizon_loaded);
+}
+
+void MainWindow::onInfoSegyProfile()
+{
+    if (!reader_ || !reader_->isOpen())
+        return;
+
+    DataInfoDialog::showSegyProfile(this, current_segy_path_, metadata_,
+                                    x_byte_, y_byte_,
+                                    trace_x_coords_, trace_y_coords_);
+}
+
+void MainWindow::onInfoStatics()
+{
+    if (current_statics_path_.isEmpty() || static_points_.empty())
+        return;
+
+    const int n_traces = reader_ && reader_->isOpen() ? metadata_.n_traces : 0;
+    DataInfoDialog::showStatics(this, current_statics_path_, static_points_,
+                                trace_x_coords_, trace_y_coords_, n_traces);
+}
+
+void MainWindow::onInfoHorizon()
+{
+    if (current_horizon_path_.isEmpty() || horizon_points_.empty())
+        return;
+
+    const int n_traces = reader_ && reader_->isOpen() ? metadata_.n_traces : 0;
+    DataInfoDialog::showHorizon(this, current_horizon_path_, horizon_points_,
+                                trace_x_coords_, trace_y_coords_, n_traces);
 }
 
 void MainWindow::onOpenSegy()
@@ -416,7 +573,7 @@ void MainWindow::loadSegyFile(const QString& path, int x_byte, int y_byte)
         shifted_traces_ = original_traces_;
 
         current_segy_path_ = path;
-        segy_path_label_->setText(tr("SEGY: %1").arg(QFileInfo(path).fileName()));
+        updateFileCard(segy_card_, segy_name_label_, QFileInfo(path).fileName(), true);
 
         // Обновляем пределы
         trace_min_spin_->setRange(0, metadata_.n_traces - 1);
@@ -446,6 +603,8 @@ void MainWindow::loadSegyFile(const QString& path, int x_byte, int y_byte)
         // Zoom logging handled elsewhere
 
     updateScrollbars();
+
+    updateInfoMenuActions();
 
     } catch (const std::exception& e) {
         QMessageBox::critical(this, tr("Error"),
@@ -617,13 +776,14 @@ void MainWindow::loadStaticsFile(const QString& path, bool xy_mode, int x_col, i
     }
 
     current_statics_path_ = path;
-    statics_path_label_->setText(tr("Statics: %1 (%2 points)")
-                                  .arg(QFileInfo(path).fileName())
-                                  .arg(static_points_.size()));
+    updateFileCard(statics_card_, statics_name_label_,
+                   tr("%1 · %2 pts").arg(QFileInfo(path).fileName()).arg(static_points_.size()),
+                   true);
 
     applyStaticsAndUpdate();
 
     statusBar()->showMessage(tr("Loaded %1 static points").arg(static_points_.size()), 3000);
+    updateInfoMenuActions();
 }
 
 void MainWindow::onOpenHorizon()
@@ -797,13 +957,14 @@ void MainWindow::loadHorizonFile(const QString& path, bool xy_mode, int x_col, i
               });
 
     current_horizon_path_ = path;
-    horizon_path_label_->setText(tr("Horizon: %1 (%2 points)")
-                                  .arg(QFileInfo(path).fileName())
-                                  .arg(horizon_points_.size()));
+    updateFileCard(horizon_card_, horizon_name_label_,
+                   tr("%1 · %2 pts").arg(QFileInfo(path).fileName()).arg(horizon_points_.size()),
+                   true);
 
     seismic_view_->setHorizon(horizon_points_);
 
     statusBar()->showMessage(tr("Loaded %1 horizon points").arg(horizon_points_.size()), 3000);
+    updateInfoMenuActions();
 }
 
 void MainWindow::onSaveSegy()
@@ -945,7 +1106,7 @@ void MainWindow::applyStaticsAndUpdate()
         seismic_view_->setStaticsCurve(statics);
 
     // Обновляем статус
-    status_label_->setText(tr("Traces: [%1, %2], Time: [%3, %4] ms")
+    status_label_->setText(tr("Traces %1–%2  ·  Time %3–%4 ms")
                            .arg(view_first_trace_)
                            .arg(view_first_trace_ + view_trace_count_ - 1)
                            .arg(static_cast<int>(view_first_sample_ * metadata_.dt * 1000))
@@ -1213,7 +1374,6 @@ void MainWindow::onTraceZoomRequested(int first_trace, int count)
     h_scrollbar_->setValue(view_first_trace_);
     h_scrollbar_->blockSignals(false);
 
-    qDebug() << "[MainWindow] Horizontal zoom:" << view_first_trace_ << "+" << view_trace_count_;
     applyStaticsAndUpdate();
 }
 
@@ -1232,7 +1392,6 @@ void MainWindow::onTimeZoomRequested(int first_sample, int count)
     v_scrollbar_->setValue(view_first_sample_);
     v_scrollbar_->blockSignals(false);
 
-    qDebug() << "[MainWindow] Vertical zoom:" << view_first_sample_ << "+" << view_sample_count_;
     applyStaticsAndUpdate();
 }
 
@@ -1255,7 +1414,6 @@ void MainWindow::onResetZoomRequested()
         time_max_spin_->setValue(static_cast<int>(metadata_.n_samples * metadata_.dt * 1000));
     }
 
-    qDebug() << "[MainWindow] Reset zoom";
     applyStaticsAndUpdate();
 }
 
