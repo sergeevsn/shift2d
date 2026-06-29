@@ -341,7 +341,11 @@ void MainWindow::createLeftPanel()
     mode_group_->addButton(mode_inverse_radio_, 2);
     mode_layout->addWidget(mode_inverse_radio_);
 
+#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
     connect(mode_group_, QOverload<int>::of(&QButtonGroup::idClicked),
+#else
+    connect(mode_group_, QOverload<int>::of(&QButtonGroup::buttonClicked),
+#endif
             this, &MainWindow::onModeChanged);
 
     interpolate_checkbox_ = new QCheckBox(tr("Interpolate gaps"), mode_group_box);

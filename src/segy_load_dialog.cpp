@@ -267,7 +267,11 @@ void SegyLoadDialog::setupUi()
         button_group->addButton(option_radios_[i], i);
     }
 
+#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
     connect(button_group, QOverload<int>::of(&QButtonGroup::idClicked),
+#else
+    connect(button_group, QOverload<int>::of(&QButtonGroup::buttonClicked),
+#endif
             this, &SegyLoadDialog::onSelectionChanged);
 
     main_layout->addWidget(coord_group);
