@@ -4,10 +4,12 @@
 #include <QColor>
 
 class QApplication;
+class QWidget;
 
 namespace AppTheme {
 
 void apply(QApplication& app);
+void applyLoadDialogTypography(QWidget* root);
 
 QColor canvasBackground();
 QColor plotSurface();

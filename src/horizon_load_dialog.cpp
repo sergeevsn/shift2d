@@ -1,5 +1,7 @@
 #include "horizon_load_dialog.hpp"
 
+#include "app_theme.hpp"
+
 #include "load_preview_widgets.hpp"
 
 #include <QVBoxLayout>
@@ -19,6 +21,7 @@ HorizonLoadDialog::HorizonLoadDialog(QWidget* parent)
     : QDialog(parent)
 {
     setupUi();
+    AppTheme::applyLoadDialogTypography(this);
     setWindowTitle(tr("Horizon CSV Load Settings"));
     setMinimumWidth(520);
     setMinimumHeight(520);

@@ -1,5 +1,7 @@
 #include "statics_load_dialog.hpp"
 
+#include "app_theme.hpp"
+
 #include "load_preview_widgets.hpp"
 
 #include <QVBoxLayout>
@@ -19,6 +21,7 @@ StaticsLoadDialog::StaticsLoadDialog(QWidget* parent)
     : QDialog(parent)
 {
     setupUi();
+    AppTheme::applyLoadDialogTypography(this);
     setWindowTitle(tr("Statics CSV Load Settings"));
     setMinimumWidth(520);
     setMinimumHeight(520);

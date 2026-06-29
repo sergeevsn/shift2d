@@ -95,7 +95,11 @@ private:
     static constexpr int kTimeTickLabelGap = 6;
     static constexpr int kRightMargin = 10;
     static constexpr int kTopMargin = 40;
-    static constexpr int kBottomMargin = 40;
+    static constexpr int kBottomMargin = 62;
+    static constexpr int kTraceAxisLineOffset = 8;
+    static constexpr int kTraceTickLength = 4;
+    static constexpr int kTraceTickLabelGap = 6;
+    static constexpr int kTraceAxisTitleGap = 10;
     static constexpr int kStaticsDataGap = 12;
 
     PlotRect plotRect() const;

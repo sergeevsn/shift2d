@@ -1,4 +1,5 @@
 #include "segy_load_dialog.hpp"
+
 #include "app_theme.hpp"
 
 #include "segy_reader.hpp"
@@ -163,6 +164,7 @@ SegyLoadDialog::SegyLoadDialog(QWidget* parent)
     : QDialog(parent)
 {
     setupUi();
+    AppTheme::applyLoadDialogTypography(this);
     setWindowTitle(tr("SEGY Load Settings"));
     setMinimumWidth(520);
     setMinimumHeight(420);

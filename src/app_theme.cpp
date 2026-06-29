@@ -4,6 +4,12 @@
 #include <QFile>
 #include <QFont>
 #include <QPalette>
+#include <QWidget>
+#include <QLabel>
+#include <QGroupBox>
+#include <QAbstractButton>
+#include <QComboBox>
+#include <QAbstractSpinBox>
 
 namespace {
 
@@ -54,6 +60,39 @@ void apply(QApplication& app)
     QFile style_file(QStringLiteral(":/styles/app.qss"));
     if (style_file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         app.setStyleSheet(QString::fromUtf8(style_file.readAll()));
+    }
+}
+
+void applyLoadDialogTypography(QWidget* root)
+{
+    if (!root)
+        return;
+
+    QFont dialog_font = root->font();
+    dialog_font.setPointSize(12);
+    root->setFont(dialog_font);
+
+    const auto set_widget_font = [&](QWidget* widget, int point_size) {
+        QFont font = dialog_font;
+        font.setPointSize(point_size);
+        widget->setFont(font);
+    };
+
+    for (QGroupBox* box : root->findChildren<QGroupBox*>())
+        set_widget_font(box, 12);
+    for (QAbstractButton* button : root->findChildren<QAbstractButton*>())
+        set_widget_font(button, 12);
+    for (QComboBox* combo : root->findChildren<QComboBox*>())
+        set_widget_font(combo, 12);
+    for (QAbstractSpinBox* spin : root->findChildren<QAbstractSpinBox*>())
+        set_widget_font(spin, 12);
+    for (QLabel* label : root->findChildren<QLabel*>()) {
+        if (label->objectName() == QStringLiteral("dialogHint"))
+            set_widget_font(label, 11);
+        else if (label->objectName() == QStringLiteral("dialogOptionLabel"))
+            set_widget_font(label, 12);
+        else
+            set_widget_font(label, 12);
     }
 }
 
