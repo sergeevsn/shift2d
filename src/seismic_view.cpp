@@ -494,8 +494,10 @@ void SeismicView::drawStaticsCurve(QPainter& p, const PlotRect& statics_rect)
                                        statics_rect.bottom - label_h / 2);
         QRect label(tick_label_left, label_y - label_h / 2,
                     tick_label_right - tick_label_left, label_h);
-        p.drawText(label, Qt::AlignRight | Qt::AlignVCenter,
-                   QStringLiteral("%1 ms").arg(QString::number(ms, 'f', 1)));
+        const QString text = (std::abs(ms - std::round(ms)) < 0.05)
+            ? QString::number(ms, 'f', 0)
+            : QString::number(ms, 'f', 1);
+        p.drawText(label, Qt::AlignRight | Qt::AlignVCenter, text);
     };
     draw_tick_label(min_y, min_ms);
     draw_tick_label(max_y, max_ms);
