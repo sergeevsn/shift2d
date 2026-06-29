@@ -332,7 +332,7 @@ QDialog QGroupBox {
 
 QLabel#dialogOptionLabel {
     color: #e8eaed;
-    font-size: 11px;
+    font-size: 13px;
 }
 
 QLabel#dialogOptionLabel[valid="false"] {
@@ -341,5 +341,5 @@ QLabel#dialogOptionLabel[valid="false"] {
 
 QLabel#dialogHint {
     color: #9aa3b2;
-    font-size: 11px;
+    font-size: 12px;
 }

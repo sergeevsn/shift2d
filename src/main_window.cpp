@@ -228,7 +228,7 @@ void MainWindow::createLeftPanel()
 {
     left_panel_ = new QWidget(this);
     left_panel_->setObjectName(QStringLiteral("sidebar"));
-    left_panel_->setFixedWidth(300);
+    left_panel_->setFixedWidth(340);
 
     auto* outer_layout = new QVBoxLayout(left_panel_);
     outer_layout->setContentsMargins(12, 12, 12, 12);

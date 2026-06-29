@@ -90,7 +90,9 @@ private:
     };
 
     // Константы отступов
-    static constexpr int kLeftMargin = 70;
+    static constexpr int kLeftMargin = 90;
+    static constexpr int kTimeAxisTitleColumn = 22;
+    static constexpr int kTimeTickLabelGap = 6;
     static constexpr int kRightMargin = 10;
     static constexpr int kTopMargin = 40;
     static constexpr int kBottomMargin = 40;

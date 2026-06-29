@@ -455,7 +455,9 @@ void SeismicView::drawStaticsCurve(QPainter& p, const PlotRect& statics_rect)
     axis_pen.setCosmetic(true);
     p.setPen(axis_pen);
 
-    const int axis_x = statics_rect.left - 10;
+    const int axis_x = kLeftMargin - 12;
+    const int tick_label_left = kTimeAxisTitleColumn + 4;
+    const int tick_label_right = axis_x - kTimeTickLabelGap;
     const int min_y = yForStatic(min_static);
     const int max_y = yForStatic(max_static);
     p.drawLine(axis_x, statics_rect.top, axis_x, statics_rect.bottom);
@@ -469,8 +471,8 @@ void SeismicView::drawStaticsCurve(QPainter& p, const PlotRect& statics_rect)
 
     const double min_ms = static_cast<double>(min_static) * 1000.0;
     const double max_ms = static_cast<double>(max_static) * 1000.0;
-    QRect min_label(0, min_y - 7, axis_x - 6, 14);
-    QRect max_label(0, max_y - 7, axis_x - 6, 14);
+    QRect min_label(tick_label_left, min_y - 7, tick_label_right - tick_label_left, 14);
+    QRect max_label(tick_label_left, max_y - 7, tick_label_right - tick_label_left, 14);
     p.drawText(min_label, Qt::AlignRight | Qt::AlignVCenter,
                QStringLiteral("%1 ms").arg(QString::number(min_ms, 'f', 1)));
     p.drawText(max_label, Qt::AlignRight | Qt::AlignVCenter,
@@ -489,7 +491,9 @@ void SeismicView::drawAxes(QPainter& p, const PlotRect& plot)
     p.setPen(AppTheme::axisText());
 
     // Ось времени (Y) слева
-    const int axis_left_x = kLeftMargin - 10;
+    const int axis_left_x = kLeftMargin - 12;
+    const int tick_label_left = kTimeAxisTitleColumn + 4;
+    const int tick_label_right = axis_left_x - kTimeTickLabelGap;
     p.setPen(AppTheme::axisLine());
     p.drawLine(axis_left_x, plot.top, axis_left_x, plot.bottom);
 
@@ -522,13 +526,13 @@ void SeismicView::drawAxes(QPainter& p, const PlotRect& plot)
             p.drawLine(axis_left_x - 4, y, axis_left_x, y);
 
             QString label = QString::number(tick, 'f', (step < 1.0) ? 1 : 0);
-            QRect textRect(0, y - 7, axis_left_x - 6, 14);
+            QRect textRect(tick_label_left, y - 7, tick_label_right - tick_label_left, 14);
             p.setPen(AppTheme::axisText());
             p.drawText(textRect, Qt::AlignRight | Qt::AlignVCenter, label);
         }
     }
 
-    // Подпись оси Y
+    // Подпись оси Y — у верхнего края, чтобы не пересекаться с тиками
     {
         QFont titleFont = axisFont;
         titleFont.setBold(true);
@@ -537,9 +541,7 @@ void SeismicView::drawAxes(QPainter& p, const PlotRect& plot)
         p.setPen(AppTheme::axisText());
 
         p.save();
-        int cx = axis_left_x - 42;
-        int cy = plot.top + plot.height() / 2;
-        p.translate(cx, cy);
+        p.translate(kTimeAxisTitleColumn / 2, plot.top + 6);
         p.rotate(-90.0);
         p.drawText(QRect(-50, -10, 100, 20), Qt::AlignCenter, tr("Time, ms"));
         p.restore();
