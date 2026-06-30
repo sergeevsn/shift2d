@@ -27,6 +27,12 @@
 #include <QScrollArea>
 #include <QFrame>
 #include <QToolButton>
+#include <QDragEnterEvent>
+#include <QDragMoveEvent>
+#include <QDropEvent>
+#include <QMimeData>
+#include <QUrl>
+#include <QEvent>
 
 #include "seismic_view.hpp"
 #include "segy_load_dialog.hpp"
@@ -41,6 +47,43 @@
 #include <fstream>
 #include <sstream>
 #include <limits>
+
+namespace {
+
+bool isSegyFilePath(const QString& path)
+{
+    const QString suffix = QFileInfo(path).suffix().toLower();
+    return suffix == QStringLiteral("sgy") || suffix == QStringLiteral("segy");
+}
+
+bool mimeHasSegyFile(const QMimeData* mime)
+{
+    if (!mime || !mime->hasUrls())
+        return false;
+
+    for (const QUrl& url : mime->urls()) {
+        if (url.isLocalFile() && isSegyFilePath(url.toLocalFile()))
+            return true;
+    }
+    return false;
+}
+
+QString firstSegyPath(const QMimeData* mime)
+{
+    if (!mime || !mime->hasUrls())
+        return {};
+
+    for (const QUrl& url : mime->urls()) {
+        if (!url.isLocalFile())
+            continue;
+        const QString path = url.toLocalFile();
+        if (isSegyFilePath(path))
+            return path;
+    }
+    return {};
+}
+
+}  // namespace
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
@@ -119,6 +162,67 @@ void MainWindow::setupUi()
     connect(seismic_view_, &SeismicView::timeZoomRequested, this, &MainWindow::onTimeZoomRequested);
     connect(seismic_view_, &SeismicView::resetZoomRequested, this, &MainWindow::onResetZoomRequested);
     connect(seismic_view_, &SeismicView::hoverInfoChanged, this, &MainWindow::onHoverInfoChanged);
+
+    installSegyDropSupport(this);
+}
+
+void MainWindow::installSegyDropSupport(QWidget* root)
+{
+    if (!root)
+        return;
+
+    root->setAcceptDrops(true);
+    root->installEventFilter(this);
+
+    for (QObject* child : root->children()) {
+        if (auto* widget = qobject_cast<QWidget*>(child))
+            installSegyDropSupport(widget);
+    }
+}
+
+bool MainWindow::eventFilter(QObject* watched, QEvent* event)
+{
+    switch (event->type()) {
+    case QEvent::DragEnter:
+    case QEvent::DragMove: {
+        auto* drag_event = static_cast<QDragMoveEvent*>(event);
+        if (mimeHasSegyFile(drag_event->mimeData())) {
+            drag_event->acceptProposedAction();
+            return true;
+        }
+        break;
+    }
+    case QEvent::Drop: {
+        auto* drop_event = static_cast<QDropEvent*>(event);
+        const QString path = firstSegyPath(drop_event->mimeData());
+        if (!path.isEmpty()) {
+            openSegyFromPath(path);
+            drop_event->acceptProposedAction();
+            return true;
+        }
+        break;
+    }
+    default:
+        break;
+    }
+
+    return QMainWindow::eventFilter(watched, event);
+}
+
+void MainWindow::openSegyFromPath(const QString& path)
+{
+    if (path.isEmpty())
+        return;
+
+    SegyLoadDialog dialog(this);
+    dialog.analyzeFile(path);
+
+    if (dialog.exec() != QDialog::Accepted)
+        return;
+
+    x_byte_ = dialog.xByte();
+    y_byte_ = dialog.yByte();
+    loadSegyFile(path, x_byte_, y_byte_);
 }
 
 void MainWindow::setupMenu()
@@ -544,26 +648,13 @@ void MainWindow::onInfoHorizon()
 
 void MainWindow::onOpenSegy()
 {
-    QString path = QFileDialog::getOpenFileName(
+    const QString path = QFileDialog::getOpenFileName(
         this,
         tr("Open SEG-Y file"),
         QString(),
         tr("SEG-Y files (*.sgy *.segy);;All files (*)"));
 
-    if (path.isEmpty())
-        return;
-
-    // Показываем диалог настроек загрузки
-    SegyLoadDialog dialog(this);
-    dialog.analyzeFile(path);
-
-    if (dialog.exec() != QDialog::Accepted)
-        return;
-
-    x_byte_ = dialog.xByte();
-    y_byte_ = dialog.yByte();
-
-    loadSegyFile(path, x_byte_, y_byte_);
+    openSegyFromPath(path);
 }
 
 void MainWindow::loadSegyFile(const QString& path, int x_byte, int y_byte)

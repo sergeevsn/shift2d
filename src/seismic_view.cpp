@@ -294,7 +294,7 @@ void SeismicView::drawEmptyState(QPainter& p)
     p.setPen(AppTheme::emptyStateHint());
 
     p.drawText(QRect(0, cy - 16, width(), 22), Qt::AlignCenter,
-               tr("Open a SEG-Y file from the sidebar or File menu"));
+               tr("Open a SEG-Y file from the sidebar, File menu, or drag it here"));
     p.drawText(QRect(0, cy + 8, width(), 22), Qt::AlignCenter,
                tr("Drag to zoom  ·  Scroll to zoom in/out  ·  Right-click to reset"));
 }

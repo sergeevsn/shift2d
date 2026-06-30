@@ -69,11 +69,16 @@ private slots:
     void onInfoStatics();
     void onInfoHorizon();
 
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override;
+
 private:
     void setupUi();
     void setupMenu();
     void setupToolbar(QVBoxLayout* parent_layout);
     void createLeftPanel();
+    void openSegyFromPath(const QString& path);
+    void installSegyDropSupport(QWidget* root);
 
     // Загрузка данных
     void loadSegyFile(const QString& path, int x_byte, int y_byte);
